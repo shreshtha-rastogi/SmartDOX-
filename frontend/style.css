@@ -1,0 +1,20 @@
+body {
+    background-color: #000000;
+}
+
+pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* Custom Scrollbar for dark theme */
+::-webkit-scrollbar {
+    width: 8px;
+}
+::-webkit-scrollbar-track {
+    background: #000000;
+}
+::-webkit-scrollbar-thumb {
+    background: #1e3a8a; /* Dark Blue */
+    border-radius: 4px;
+}

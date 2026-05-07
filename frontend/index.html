@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartDOX | AI Evaluation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // Auth Check: Agar user logged in nahi hai, toh login page par bhej do
+        if (!localStorage.getItem('user_id')) {
+            window.location.href = "login.html";
+        }
+
+        function logout() {
+            localStorage.clear();
+            window.location.href = "login.html";
+        }
+    </script>
+</head>
+<body class="bg-black text-white min-h-screen font-sans">
+
+    <!-- FIXED NAVIGATION BAR -->
+    <nav class="bg-gray-900 border-b border-blue-900 p-4 flex justify-between items-center sticky top-0 z-[100]">
+        <div class="flex items-center gap-2">
+            <h1 class="text-2xl font-bold text-blue-500">SmartDOX</h1>
+            <span class="text-gray-500 text-sm hidden md:inline">| Government Tender Evaluation</span>
+        </div>
+        
+        <div class="flex items-center gap-6">
+            <a href="index.html" class="text-gray-300 hover:text-blue-400 transition">Home</a>
+            <!-- Yeh History link ab saaf dikhega -->
+            <a href="history.html" class="bg-blue-900/50 border border-blue-500 px-4 py-1.5 rounded-lg text-blue-300 hover:bg-blue-600 hover:text-white transition flex items-center gap-2">
+                📜 Upload History
+            </a>
+            
+            <div class="flex items-center gap-4 border-l border-gray-700 pl-6">
+                <span id="welcome-user" class="text-green-400 font-medium italic"></span>
+                <button onclick="logout()" class="bg-red-600/20 text-red-500 border border-red-600 px-3 py-1 rounded-md text-sm hover:bg-red-600 hover:text-white transition">
+                    Logout
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Language Selector -->
+    <div class="p-6">
+        <select id="langSelector" class="bg-gray-800 text-white p-2 rounded border border-gray-700 outline-none focus:border-blue-500">
+            <option value="en">English</option>
+            <option value="hi">Hindi</option>
+            <option value="mr">Marathi</option>
+            <option value="bn">Bengali</option>
+            <option value="ta">Tamil</option>
+        </select>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <main class="container mx-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-8 mt-4">
+        
+        <section class="bg-gray-900 p-6 rounded-xl border border-blue-950">
+            <h2 data-i18n="step-1" class="text-xl font-semibold mb-4 text-blue-400">1. Process New Tender</h2>
+            <input type="file" id="tenderFile" class="hidden">
+            <label for="tenderFile" data-i18n="btn-choose-file" class="cursor-pointer block w-full text-center py-2 bg-gray-800 border border-blue-500 rounded-lg text-blue-400 hover:bg-gray-700 transition">
+                Choose File
+            </label>
+            <span id="tenderFileName" class="text-xs text-gray-500 mt-2 block italic">No file chosen</span>
+            <button onclick="uploadTender()" data-i18n="btn-extract" class="w-full bg-blue-700 py-2 mt-4 rounded-lg hover:bg-blue-600 transition">Extract Criteria</button>
+        </section>
+
+        <section class="bg-gray-900 p-6 rounded-xl border border-blue-950">
+            <h2 data-i18n="step-2" class="text-xl font-semibold mb-4 text-blue-400">2. Evaluate Bidder</h2>
+            <input type="file" id="bidderFile" class="hidden">
+            <label for="bidderFile" data-i18n="btn-choose-file" class="cursor-pointer block w-full text-center py-2 bg-gray-800 border border-green-500 rounded-lg text-green-400 hover:bg-gray-700 transition">
+                Choose File
+            </label>
+            <span id="bidderFileName" class="text-xs text-gray-500 mt-2 block italic">No file chosen</span>
+            <button onclick="evaluateBidder()" data-i18n="btn-analyze" class="w-full bg-green-700 py-2 mt-4 rounded-lg hover:bg-green-600 transition">Analyze Submission</button>
+        </section>
+
+    </main>
+
+    <!-- OUTPUT AREA -->
+    <div class="container mx-auto p-6 mt-5">
+        <div id="resultBox" class="bg-gray-950 p-6 rounded-lg border border-gray-800 hidden">
+            <h3 data-i18n="output-title" class="text-blue-400 font-bold mb-2">Output Report:</h3>
+            <pre id="outputData" class="text-green-400 font-mono text-sm whitespace-pre-wrap break-words"></pre>
+        </div>
+    </div>
+
+    <!-- FLOATING CHAT ASSISTANT -->
+    <button id="chatBtn" onclick="toggleChat()" class="fixed bottom-6 right-6 bg-blue-600 p-4 rounded-full shadow-lg hover:bg-blue-500 transition-all z-50">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+        </svg>
+    </button>
+
+    <div id="chatBox" class="hidden fixed bottom-24 right-6 w-80 h-96 bg-gray-900 border border-blue-900 rounded-xl shadow-2xl z-50 flex flex-col overflow-hidden">
+        <div class="p-4 bg-blue-900 text-white font-bold flex justify-between items-center">
+            <span data-i18n="chat-title">AI Assistant</span>
+            <button onclick="toggleChat()" class="text-white hover:text-gray-300">✕</button>
+        </div>
+        <div id="chatMessages" class="flex-1 p-4 overflow-y-auto space-y-3"></div>
+        <div class="p-3 border-t border-gray-800 flex gap-2">
+            <input type="text" id="userInput" placeholder="Ask something..." class="flex-1 bg-black text-white p-2 rounded-lg border border-gray-700 outline-none">
+            <button onclick="sendMessage()" class="bg-blue-600 px-4 py-2 rounded-lg text-white font-bold">Send</button>
+        </div>
+    </div>
+
+    <!-- CHAT HISTORY MODAL (Optional Popup) -->
+    <div id="historyModal" class="hidden fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[100] p-4">
+        <div class="bg-gray-900 border border-blue-900 w-full max-w-2xl max-h-[80vh] rounded-2xl flex flex-col shadow-2xl">
+            <div class="p-4 border-b border-gray-800 flex justify-between items-center bg-blue-900 rounded-t-2xl">
+                <h2 class="text-xl font-bold">Common Chat History</h2>
+                <button onclick="closeHistory()" class="text-white text-2xl hover:text-red-400">✕</button>
+            </div>
+            <div id="historyContent" class="flex-1 overflow-y-auto p-6 space-y-4 text-sm">
+                <p class="text-gray-500 text-center">Loading history...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        // Welcome message set karna
+        const name = localStorage.getItem('user_name');
+        if(name) {
+            document.getElementById('welcome-user').innerText = "Hi, " + name;
+        }
+
+        function toggleChat() {
+            const chat = document.getElementById('chatBox');
+            chat.classList.toggle('hidden');
+        }
+
+        function closeHistory() {
+            document.getElementById('historyModal').classList.add('hidden');
+        }
+    </script>
+    <script src="app.js"></script>
+
+</body>
+</html>
