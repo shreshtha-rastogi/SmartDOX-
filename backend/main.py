@@ -119,6 +119,63 @@ async def get_history(user_id: int, db: Session = Depends(get_db)):
 # -----------------------------
 # TENDER & BIDDER PROCESSING
 # -----------------------------
+# @app.post("/upload-tender")
+# async def process_tender(
+#     file: UploadFile = File(...), 
+#     user_id: str = None, 
+#     db: Session = Depends(get_db)
+# ):
+#     try:
+#         print(f"--- UPLOAD START ---")
+#         print(f"File: {file.filename}, UserID Received: {user_id}")
+
+#         contents = await file.read()
+#         text = ""
+
+#         # PDF/Image Processing
+#         if file.filename.endswith('.pdf'):
+#             doc = fitz.open(stream=contents, filetype="pdf")
+#             for page in doc:
+#                 text += page.get_text()
+#         else:
+#             image = Image.open(io.BytesIO(contents))
+#             text = pytesseract.image_to_string(image)
+
+#         # DATABASE SAVING LOGIC (With IST Time)
+#         if user_id and user_id.lower() not in ["null", "undefined", "none"]:
+#             try:
+#                 current_time_ist = datetime.now(IST)
+                
+#                 new_entry = FileHistory(
+#                     filename=file.filename,
+#                     user_id=int(user_id),
+#                     upload_date=current_time_ist
+#                 )
+#                 db.add(new_entry)
+#                 db.commit() 
+#                 db.refresh(new_entry)
+#                 print(f"✅ Saved to History Table! Entry ID: {new_entry.id} | Time: {current_time_ist}")
+#             except Exception as db_e:
+#                 db.rollback()
+#                 print(f"❌ DB Error: {db_e}")
+#         else:
+#             print("⚠️ Skipping History: user_id was null or invalid.")
+
+#         criteria = extract_criteria(text)
+        
+#         return {
+#             "filename": file.filename, 
+#             "criteria": criteria,
+#             "status": "success"
+#         }
+
+#     except Exception as e:
+#         print(f"❌ General Error: {e}")
+#         return {"error": str(e)}
+
+
+
+
 @app.post("/upload-tender")
 async def process_tender(
     file: UploadFile = File(...), 
@@ -127,50 +184,59 @@ async def process_tender(
 ):
     try:
         print(f"--- UPLOAD START ---")
-        print(f"File: {file.filename}, UserID Received: {user_id}")
-
         contents = await file.read()
         text = ""
 
-        # PDF/Image Processing
+        # 1. PDF/Image Processing (OCR included)
         if file.filename.endswith('.pdf'):
             doc = fitz.open(stream=contents, filetype="pdf")
             for page in doc:
-                text += page.get_text()
+                page_text = page.get_text()
+                if len(page_text.strip()) < 10:  # Agar page scan image hai
+                    pix = page.get_pixmap()
+                    img = Image.open(io.BytesIO(pix.tobytes()))
+                    page_text = pytesseract.image_to_string(img)
+                text += page_text
         else:
             image = Image.open(io.BytesIO(contents))
             text = pytesseract.image_to_string(image)
 
-        # DATABASE SAVING LOGIC (With IST Time)
-        if user_id and user_id.lower() not in ["null", "undefined", "none"]:
+        # 2. Database History Logic
+        if user_id and str(user_id).lower() not in ["null", "undefined", "none"]:
             try:
-                current_time_ist = datetime.now(IST)
-                
-                new_entry = FileHistory(
-                    filename=file.filename,
-                    user_id=int(user_id),
-                    upload_date=current_time_ist
-                )
-                db.add(new_entry)
-                db.commit() 
-                db.refresh(new_entry)
-                print(f"✅ Saved to History Table! Entry ID: {new_entry.id} | Time: {current_time_ist}")
+                new_history = FileHistory(filename=file.filename, user_id=int(user_id))
+                db.add(new_history)
+                db.commit()
             except Exception as db_e:
                 db.rollback()
                 print(f"❌ DB Error: {db_e}")
-        else:
-            print("⚠️ Skipping History: user_id was null or invalid.")
 
+        # 3. Extract Criteria (Structured Code)
         criteria = extract_criteria(text)
         
+        # 4. Generate Description (The missing part)
+        # Hum Groq ko bolenge ki criteria ka simple summary bana de
+        desc_completion = groq_client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[
+                {"role": "system", "content": "You are a tender analyst. Summarize the following criteria into a clear, professional paragraph for an evaluator."},
+                {"role": "user", "content": f"Criteria data: {str(criteria)}"}
+            ],
+            temperature=0.5,
+        )
+        description = desc_completion.choices[0].message.content
+
+        # 5. Full Response jaisa aapko chahiye tha
         return {
+            "status": "success",
             "filename": file.filename, 
-            "criteria": criteria,
-            "status": "success"
+            "criteria": criteria,        # Structured data (Code part)
+            "description": description,   # Human readable part
+            "preview": text[:500]        # Raw text preview
         }
 
     except Exception as e:
-        print(f"❌ General Error: {e}")
+        print(f"❌ Error: {str(e)}")
         return {"error": str(e)}
 
 @app.post("/evaluate-bidder")
